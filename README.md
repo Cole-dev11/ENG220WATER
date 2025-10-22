@@ -43,7 +43,7 @@ implications on the state's food production and rural economies.
 ---
 
 ### Damien Betancur
-*Add contribution details here.*
+*Writing documents and project reports*
 
 ---
 
