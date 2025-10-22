@@ -33,7 +33,7 @@ implications on the state's food production and rural economies.
 ---
 
 ### Elias Vargas
-*Add contribution details here.*
+I will be cleaning and preparing the data such that our team can further analyze, make inferences, and tell the story of our project. I will be performing this with the python programming language using both built in libraries and linear algebra / matrix operation libraries to perform operations on the data and plot. This will allow our team to effectively communicate our central claim.
 
 ---
 
