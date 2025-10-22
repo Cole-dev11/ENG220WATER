@@ -28,8 +28,10 @@ implications on the state's food production and rural economies.
 
 ## Expected Contributions
 ### Cole Pinkalla
-*Add contribution details here.*
-
+- **Project Manager**
+- **Managing GitHub Workflow:** Branches, commits, merges
+- **General Team Cohesion Efforts**
+- **Providing Technical Aid Where Needed**
 ---
 
 ### Elias Vargas
