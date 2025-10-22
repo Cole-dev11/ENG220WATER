@@ -48,4 +48,6 @@ I will be cleaning and preparing the data such that our team can further analyze
 ---
 
 ### Ricardo Garcia
-*Add contribution details here.*
+**Data Analysis & Visualization: Develop Python scripts to analyze and quantify time-series data, producing interactive charts and map visuals to illustrate key trends.
+
+**Application Development: Designed and built an interactive web dashboard to allow end-users to dynamically filter, explore, and visualize the data set.
