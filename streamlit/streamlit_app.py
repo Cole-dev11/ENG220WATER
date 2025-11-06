@@ -60,3 +60,8 @@ with col1:
 with col2:
     st.header("Next Steps")
     st.write("You can add markers, popups, and more using Folium's functions.")
+
+
+
+
+    
