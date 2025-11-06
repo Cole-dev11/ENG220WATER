@@ -1,38 +1,32 @@
 import streamlit as st
+import pandas as pd
+import numpy as np
 
-# --- 1. Set Page Configuration ---
-# This must be the first Streamlit command in your script.
-st.set_page_config(
-    page_title="My Blank App",  # Title shown in browser tab
-    page_icon="👋",             # Icon shown in browser tab
-    layout="wide",               # 'wide' or 'centered'
-    initial_sidebar_state="auto" # 'auto', 'expanded', or 'collapsed'
-)
+# Title and description
+st.title("📊 Simple Streamlit Dashboard")
+st.write("This is a demo app built with Streamlit!")
 
-# --- 2. Main Page Content ---
-st.title("My Blank Streamlit App")
-st.header("Welcome!")
+# Sidebar inputs
+st.sidebar.header("User Input")
+num_points = st.sidebar.slider("Number of data points", 10, 1000, 100)
+show_table = st.sidebar.checkbox("Show Data Table", True)
 
-st.write("Start building your app here. Add widgets, text, charts, and more.")
+# Generate some data
+data = pd.DataFrame({
+    "x": np.arange(num_points),
+    "y": np.random.randn(num_points).cumsum()
+})
 
-# --- 3. Example Components (Commented Out) ---
+# Display data
+st.subheader("Line Chart")
+st.line_chart(data, x="x", y="y")
 
-# --- Sidebar ---
-# st.sidebar.header("Options")
-# name = st.sidebar.text_input("What is your name?")
-# if name:
-#     st.sidebar.write(f"Hello, {name}!")
+# Optionally show table
+if show_table:
+    st.subheader("Data Table")
+    st.dataframe(data)
 
-# --- Columns ---
-# col1, col2 = st.columns(2)
-# with col1:
-#     st.header("Column 1")
-#     st.write("This is content for the first column.")
+# Add user input text
+user_name = st.text_input("Enter your name", "Guest")
+st.write(f"👋 Hello, **{user_name}**!")
 
-# with col2:
-#     st.header("Column 2")
-#     st.button("Click me")
-
-# --- Interactive Widgets ---
-# if st.checkbox("Show details"):
-#     st.write("Here are the details you requested.")\
