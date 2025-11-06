@@ -25,3 +25,5 @@ fig.update_layout(margin={"r":0, "t":0, "l":0, "b":0})
 
 # Display the map
 st.plotly_chart(fig, use_container_width=True)
+
+#Take 2
