@@ -1,6 +1,7 @@
 import streamlit as st
 import folium
 from streamlit_folium import st_folium
+import json  ## NEW ## Import the json library
 
 # --- 1. Set Page Configuration ---
 st.set_page_config(
@@ -14,83 +15,85 @@ st.set_page_config(
 st.title("Interactive Map of New Mexico 🗺️")
 st.write("This map is fully interactive. You can zoom, pan, and click on a county.")
 
-# --- 3. Folium Map Creation ---
+## NEW ## --- Load Local GeoJSON File ---
+file_path = "tl_2010_35_county10.geojson"
+try:
+    with open(file_path, "r") as f:
+        nm_county_data = json.load(f)
+except FileNotFoundError:
+    st.error(f"Error: GeoJSON file not found at '{file_path}'.")
+    st.error("Please make sure the file is in the same directory as your script.")
+    st.stop() # Stop the app if the file isn't found
+except json.JSONDecodeError:
+    st.error(f"Error: Could not read or decode the GeoJSON file.")
+    st.error("Please ensure the file is a valid GeoJSON.")
+    st.stop()
+except Exception as e:
+    st.error(f"An unexpected error occurred while loading the file: {e}")
+    st.stop()
 
-# Center coordinates for New Mexico
+
+# --- 3. Folium Map Creation ---
 nm_lat = 34.5
 nm_lon = -106.0
 nm_zoom = 7
 
-# Create a Folium map object
 m = folium.Map(location=[nm_lat, nm_lon], zoom_start=nm_zoom)
 
-## NEW ## --- Add County Outlines (GeoJSON) ---
+## NEW ## --- Add County Outlines (from local data) ---
 
-# This is a URL to a GeoJSON file containing NM county boundaries.
-# Source: Public domain data
-geojson_url = "http://gstore.unm.edu/apps/rgisarchive/datasets/2ea98a14-0341-466d-9ef8-b61bbfc41c4a/tl_2010_35_county10.derived.geojson"
-
-# Add the GeoJSON layer to the map
 folium.GeoJson(
-    geojson_url,
+    nm_county_data, # Pass the loaded data variable here
     name="New Mexico Counties",
     
-    # Style function to color the counties
     style_function=lambda feature: {
-        'fillColor': '#FFFF00',  # Yellow fill
-        'color': 'black',        # Black border
-        'weight': 1,             # Border thickness
-        'fillOpacity': 0.3,      # How transparent the fill is
+        'fillColor': '#FFFF00',
+        'color': 'black',
+        'weight': 1,
+        'fillOpacity': 0.3,
     },
     
-    # Highlight function to change style on hover
     highlight_function=lambda x: {
-        'weight': 3,             # Thicker border on hover
-        'color': '#FF0000',      # Red border on hover
-        'fillOpacity': 0.6,      # More opaque on hover
+        'weight': 3,
+        'color': '#FF0000',
+        'fillOpacity': 0.6,
     },
     
-    # Tooltip to show county name on hover
     tooltip=folium.features.GeoJsonTooltip(
-        fields=['name'],         # The property in the GeoJSON to display
-        aliases=['County:'],     # The label to show before the name
+        ## NEW ## Use the correct field from your file
+        fields=['NAMELSAD10'],     
+        aliases=['County:'],   
         sticky=True
     )
 ).add_to(m)
 
 # --- 4. Display Map and Capture Clicks ---
-
-# We assign the output of st_folium to a variable `map_data`
-# This variable will hold information about the map's state,
-# including the last object that was clicked.
 st.write("Click on a county to see its name below.")
 map_data = st_folium(
     m,
     use_container_width=True,
     height=500,
-    returned_objects=["last_object_clicked"] # Tell st_folium to return click data
+    returned_objects=["last_object_clicked"]
 )
 
 # --- 5. Handle Click Data ---
-
 st.header("Click Information")
 
-# Check if an object was clicked
 if map_data.get("last_object_clicked"):
-    # The GeoJSON data is nested under 'properties'
-    county_name = map_data["last_object_clicked"]["properties"]["name"]
-    st.success(f"You clicked on **{county_name}** County!")
+    ## NEW ## Use the correct property name from your file
+    try:
+        county_name = map_data["last_object_clicked"]["properties"]["NAMELSAD10"]
+        st.success(f"You clicked on **{county_name}**!")
+    except KeyError:
+        st.warning("Clicked on the map, but couldn't find the county name property.")
 else:
     st.info("No county clicked yet.")
 
 
-# --- 6. Other Page Components (from your code) ---
-
-# --- Sidebar ---
+# --- 6. Other Page Components ---
 st.sidebar.header("Map Options")
 st.sidebar.write("Future map controls can go here!")
 
-# --- Columns ---
 col1, col2 = st.columns(2)
 with col1:
     st.header("Map Info")
