@@ -5,20 +5,19 @@ import json
 
 # --- 1. Set Page Configuration ---
 st.set_page_config(
-    page_title="New Mexico Interactive Map",
+    page_title="New Mexico Water Map",
     page_icon="🗺️",
     layout="wide",
     initial_sidebar_state="auto"
 )
 
 # --- 2. Main Page Content ---
-st.title("Interactive Map of New Mexico 🗺️")
+st.title("New Mexico Water Map")
 st.write("This map is fully interactive. You can zoom, pan, and click on a county.")
 
 # --- Load Local GeoJSON File ---
 file_path = "streamlit/tl_2010_35_county10.geojson"
 try:
-    ## NEW ## --- Specify the encoding ---
     with open(file_path, "r", encoding="latin-1") as f:
         nm_county_data = json.load(f)
         
@@ -68,27 +67,19 @@ folium.GeoJson(
 ).add_to(m)
 
 # --- 4. Display Map ---
-# st.write("Click on a county to see its name below.") # <-- REMOVED THIS LINE
 st_folium(
     m,
     use_container_width=True,
     height=500
-    # returned_objects=["last_geojson_clicked"]  # <-- REMOVED THIS PARAMETER
 )
 
-# --- 5. Handle Click Data ---
-# <-- THIS ENTIRE SECTION HAS BEEN REMOVED -->
-
-
-# --- 6. Other Page Components ---
+# --- 5. Other Page Components (Sidebar) ---
 st.sidebar.header("Map Options")
 st.sidebar.write("Future map controls can go here!")
 
-col1, col2 = st.columns(2)
-with col1:
-    st.header("Map Info")
-    st.write("The map above shows all counties in New Mexico.")
+# --- MOVED TO SIDEBAR ---
+st.sidebar.header("Map Info")
+st.sidebar.write("The map above shows all counties in New Mexico.")
 
-with col2:
-    st.header("Next Steps")
-    st.write("You can use the clicked county name to show specific data.")
+st.sidebar.header("Next Steps")
+st.sidebar.write("You can use the clicked county name to show specific data.")
