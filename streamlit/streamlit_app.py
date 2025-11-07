@@ -73,8 +73,7 @@ map_data = st_folium(
     m,
     use_container_width=True,
     height=500,
-    returned_objects=["last_object_clicked"],
-    add_marker_on_click=False
+    returned_objects=["last_object_clicked"]
 )
 
 # --- 5. Handle Click Data ---
