@@ -13,7 +13,7 @@ st.set_page_config(
 
 # --- 2. Main Page Content ---
 st.title("New Mexico Water Map")
-st.write("This map is fully interactive. You can zoom, pan, and click on a county.")
+st.write("Group Team 10: Water")
 
 # --- Load Local GeoJSON File ---
 file_path = "streamlit/tl_2010_35_county10.geojson"
