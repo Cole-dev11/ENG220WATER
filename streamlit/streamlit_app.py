@@ -73,15 +73,15 @@ map_data = st_folium(
     m,
     use_container_width=True,
     height=500,
-    returned_objects=["last_object_clicked"]
+    returned_objects=["last_geojson_clicked"]  # <-- FIX 1
 )
 
 # --- 5. Handle Click Data ---
 st.header("Click Information")
 
-if map_data.get("last_object_clicked"):
+if map_data.get("last_geojson_clicked"):  # <-- FIX 2 (Part A)
     try:
-        county_name = map_data["last_object_clicked"]["properties"]["NAMELSAD10"]
+        county_name = map_data["last_geojson_clicked"]["NAMELSAD10"]  # <-- FIX 2 (Part B)
         st.success(f"You clicked on **{county_name}**!")
     except KeyError:
         st.warning("Clicked on the map, but couldn't find the county name property.")
