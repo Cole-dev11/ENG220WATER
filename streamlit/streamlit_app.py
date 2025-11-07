@@ -11,11 +11,6 @@ st.set_page_config(
     initial_sidebar_state="auto"
 )
 
-# --- NEW: Initialize Session State ---
-# We need to store the clicked county name so it persists across reruns
-if 'clicked_county' not in st.session_state:
-    st.session_state.clicked_county = None
-
 # --- 2. Main Page Content ---
 st.title("Interactive Map of New Mexico 🗺️")
 st.write("This map is fully interactive. You can zoom, pan, and click on a county.")
@@ -23,6 +18,7 @@ st.write("This map is fully interactive. You can zoom, pan, and click on a count
 # --- Load Local GeoJSON File ---
 file_path = "streamlit/tl_2010_35_county10.geojson"
 try:
+    ## NEW ## --- Specify the encoding ---
     with open(file_path, "r", encoding="latin-1") as f:
         nm_county_data = json.load(f)
         
@@ -40,31 +36,6 @@ except Exception as e:
 
 
 # --- 3. Folium Map Creation ---
-
-# --- NEW: Define a dynamic style function ---
-def dynamic_style_function(feature):
-    """
-    Styles features based on whether they are clicked (in session_state)
-    """
-    feature_county_name = feature['properties']['NAMELSAD10']
-    
-    if feature_county_name == st.session_state.clicked_county:
-        # Style for the *clicked* county
-        return {
-            'fillColor': '#FFFF00',
-            'color': 'black',       # Black outline
-            'weight': 3,            # Thicker weight
-            'fillOpacity': 0.6,
-        }
-    else:
-        # Default style for all other counties
-        return {
-            'fillColor': '#FFFF00',
-            'color': 'black',
-            'weight': 1,
-            'fillOpacity': 0.3,
-        }
-
 nm_lat = 34.5
 nm_lon = -106.0
 nm_zoom = 7
@@ -76,10 +47,13 @@ folium.GeoJson(
     nm_county_data,
     name="New Mexico Counties",
     
-    # --- MODIFIED: Use our new dynamic function ---
-    style_function=dynamic_style_function,
+    style_function=lambda feature: {
+        'fillColor': '#FFFF00',
+        'color': 'black',
+        'weight': 1,
+        'fillOpacity': 0.3,
+    },
     
-    # This highlight (red on hover) will still work
     highlight_function=lambda x: {
         'weight': 3,
         'color': '#FF0000',
@@ -100,32 +74,18 @@ map_data = st_folium(
     use_container_width=True,
     height=500,
     returned_objects=["last_object_clicked"],
-    
-    # --- NEW: This disables the black square marker ---
     add_marker_on_click=False
 )
 
 # --- 5. Handle Click Data ---
 st.header("Click Information")
 
-# --- MODIFIED: Update session state based on click ---
 if map_data.get("last_object_clicked"):
     try:
-        # Get the name from the click event
-        clicked_name = map_data["last_object_clicked"]["properties"]["NAMELSAD10"]
-        
-        # Update session state. This assignment will trigger a script rerun,
-        # which is what redraws the map with the new style.
-        st.session_state.clicked_county = clicked_name
-        
-    except (KeyError, TypeError):
-        # This can happen if the click is not on a feature
-        st.session_state.clicked_county = None
+        county_name = map_data["last_object_clicked"]["properties"]["NAMELSAD10"]
+        st.success(f"You clicked on **{county_name}**!")
+    except KeyError:
         st.warning("Clicked on the map, but couldn't find the county name property.")
-
-# Display the currently selected county (read from session state)
-if st.session_state.clicked_county:
-    st.success(f"You clicked on **{st.session_state.clicked_county}**!")
 else:
     st.info("No county clicked yet.")
 
