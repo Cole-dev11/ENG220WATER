@@ -16,7 +16,7 @@ st.title("Interactive Map of New Mexico 🗺️")
 st.write("This map is fully interactive. You can zoom, pan, and click on a county.")
 
 ## NEW ## --- Load Local GeoJSON File ---
-file_path = "tl_2010_35_county10.geojson"
+file_path = "streamlit/tl_2010_35_county10.geojson"
 try:
     with open(file_path, "r") as f:
         nm_county_data = json.load(f)
