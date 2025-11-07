@@ -16,7 +16,10 @@ st.write("This map is fully interactive. You can zoom, pan, and click on any cou
 # --- 3. GeoJSON Data ---
 # This is a URL to a public GeoJSON file containing NM county boundaries.
 # We will load this file directly into Folium.
-nm_geojson_url = "https://gist.githubusercontent.com/HEInes/82c3e1e285813b63a7c6/raw/9017f7b3d390b41113b567f229b4e183bc68e7c1/new-mexico-counties.geojson"
+
+# !!! THIS IS THE CORRECTED URL !!!
+nm_geojson_url = "https://raw.githubusercontent.com/usdus/maps/master/geojson/new-mexico-counties.geojson"
+
 
 # --- 4. Folium Map Creation ---
 # Center coordinates for New Mexico
