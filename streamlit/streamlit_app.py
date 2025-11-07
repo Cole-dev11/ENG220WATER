@@ -1,7 +1,7 @@
 import streamlit as st
 import folium
 from streamlit_folium import st_folium
-import json  ## NEW ## Import the json library
+import json
 
 # --- 1. Set Page Configuration ---
 st.set_page_config(
@@ -15,15 +15,17 @@ st.set_page_config(
 st.title("Interactive Map of New Mexico 🗺️")
 st.write("This map is fully interactive. You can zoom, pan, and click on a county.")
 
-## NEW ## --- Load Local GeoJSON File ---
+# --- Load Local GeoJSON File ---
 file_path = "streamlit/tl_2010_35_county10.geojson"
 try:
-    with open(file_path, "r") as f:
+    ## NEW ## --- Specify the encoding ---
+    with open(file_path, "r", encoding="latin-1") as f:
         nm_county_data = json.load(f)
+        
 except FileNotFoundError:
     st.error(f"Error: GeoJSON file not found at '{file_path}'.")
     st.error("Please make sure the file is in the same directory as your script.")
-    st.stop() # Stop the app if the file isn't found
+    st.stop()
 except json.JSONDecodeError:
     st.error(f"Error: Could not read or decode the GeoJSON file.")
     st.error("Please ensure the file is a valid GeoJSON.")
@@ -40,10 +42,9 @@ nm_zoom = 7
 
 m = folium.Map(location=[nm_lat, nm_lon], zoom_start=nm_zoom)
 
-## NEW ## --- Add County Outlines (from local data) ---
-
+# --- Add County Outlines (from local data) ---
 folium.GeoJson(
-    nm_county_data, # Pass the loaded data variable here
+    nm_county_data,
     name="New Mexico Counties",
     
     style_function=lambda feature: {
@@ -60,9 +61,8 @@ folium.GeoJson(
     },
     
     tooltip=folium.features.GeoJsonTooltip(
-        ## NEW ## Use the correct field from your file
-        fields=['NAMELSAD10'],     
-        aliases=['County:'],   
+        fields=['NAMELSAD10'],
+        aliases=['County:'],
         sticky=True
     )
 ).add_to(m)
@@ -80,7 +80,6 @@ map_data = st_folium(
 st.header("Click Information")
 
 if map_data.get("last_object_clicked"):
-    ## NEW ## Use the correct property name from your file
     try:
         county_name = map_data["last_object_clicked"]["properties"]["NAMELSAD10"]
         st.success(f"You clicked on **{county_name}**!")
