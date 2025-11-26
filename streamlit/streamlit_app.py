@@ -35,6 +35,17 @@ except Exception as e:
     st.stop()
 
 
+# --- !!! DIAGNOSTIC STEP ADDED HERE !!! ---
+# Check the properties of the first feature in the GeoJSON to confirm the state name field.
+if us_state_data and 'features' in us_state_data and us_state_data['features']:
+    first_feature_properties = us_state_data['features'][0]['properties']
+    st.sidebar.subheader("GeoJSON Property Check (Diagnostic)")
+    st.sidebar.write("Inspect the properties below to find the correct state name field (e.g., 'name', 'STATE_NAME', 'NAME'):")
+    st.sidebar.json(first_feature_properties)
+    st.sidebar.markdown("**Look for the field that holds the state name (e.g., 'California', 'Texas', etc.)**")
+# --- !!! END OF DIAGNOSTIC STEP !!! ---
+
+
 # --- 3. Folium Map Creation ---
 # Centered on the contiguous United States for a good view
 us_lat = 39.8283
@@ -62,8 +73,9 @@ folium.GeoJson(
         'fillOpacity': 0.6,
     },
     
+    # Keep the tooltip fields dynamic until you confirm the name
     tooltip=folium.features.GeoJsonTooltip(
-        # **UPDATED FIELD:** Using 'name' from your GeoJSON file
+        # Use a placeholder like 'name' initially
         fields=['name'],     
         aliases=['State:'],   
         sticky=True
@@ -83,12 +95,17 @@ map_data = st_folium(
 st.header("Click Information")
 
 if map_data.get("last_object_clicked"):
-    # **UPDATED FIELD:** Using 'name' from your GeoJSON file
+    # The property name to use for the state name is typically 'name', 'STATE_NAME', or 'NAME'
+    # **UPDATE THIS LINE** once you confirm the correct field from the sidebar check!
+    state_name_property_key = "name" # Start with 'name'
+    
     try:
-        state_name = map_data["last_object_clicked"]["properties"]["name"]
+        # **UPDATED FIELD:** Using the variable property key
+        state_name = map_data["last_object_clicked"]["properties"][state_name_property_key]
         st.success(f"You clicked on the state: **{state_name}**!")
     except KeyError:
-        st.warning("Clicked on the map, but couldn't find the state name property. Check the GeoJSON file's properties.")
+        st.warning(f"Clicked on the map, but couldn't find the state name property **'{state_name_property_key}'** in the clicked object's properties.")
+        st.warning("Please check the GeoJSON properties printed in the sidebar and update the `state_name_property_key` variable.")
 else:
     st.info("No state clicked yet.")
 
