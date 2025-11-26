@@ -27,7 +27,7 @@ st.set_page_config(
     initial_sidebar_state="auto"
 )
 
-# --- 3. Load and Process Data (Fix Applied: Added .dropna()) ---
+# --- 3. Load and Process Data ---
 try:
     # --- Load Pipe Data ---
     df_proj = pd.read_csv("data/projected_pipes.csv").rename(
@@ -95,23 +95,18 @@ cp = folium.Choropleth(
     highlight=True
 ).add_to(m)
 
-# Add Tooltip and Click Pop-up via a custom GeoJson layer
-NIL = folium.GeoJson(
-    cp.geojson.data,
-    style_function=lambda x: {'fillColor': '#ffffff', 'color':'#000000', 'fillOpacity': 0.1, 'weight': 0.1}, 
-    control=False,
-    highlight_function=lambda x: {'fillColor': '#000000', 'color':'#000000', 'fillOpacity': 0.50, 'weight': 0.1},
-    tooltip=folium.features.GeoJsonTooltip(
-        fields=['name', 'Total_Lead_Pipes', 'Projected_Pipes', 'Measured_Pipes'],
-        aliases=['State:', 'Total Pipes:', 'Projected Pipes:', 'Measured Pipes:'],
-        localize=True,
-        sticky=False,
-        labels=True,
-        style=("background-color: white; color: #333333; font-family: arial; font-size: 12px; padding: 10px;")
-    )
-)
-m.add_child(NIL)
+# 💡 FIX: Add Tooltip directly to the Choropleth's GeoJson data (cp.geojson)
+# This ensures the tooltip has access to the merged data fields from pipes_data.
+folium.features.GeoJsonTooltip(
+    fields=['name', 'Total_Lead_Pipes', 'Projected_Pipes', 'Measured_Pipes'],
+    aliases=['State:', 'Total Pipes:', 'Projected Pipes:', 'Measured Pipes:'],
+    localize=True,
+    sticky=False,
+    labels=True,
+    style=("background-color: white; color: #333333; font-family: arial; font-size: 12px; padding: 10px;")
+).add_to(cp.geojson)
 
+# The original NIL GeoJson layer is removed as it was causing the AssertionError
 
 # --- 5. Display Map and Handle Click Data ---
 st.header("Click Information")
