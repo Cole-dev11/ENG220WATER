@@ -4,7 +4,23 @@ from streamlit_folium import st_folium
 import json
 import pandas as pd
 
-# --- 1. Set Page Configuration ---
+# --- 1. State Name to Code Mapping ---
+# Necessary to merge the full state names in your CSV with the 2-letter codes in the GeoJSON.
+STATE_TO_CODE = {
+    'Alabama': 'AL', 'Alaska': 'AK', 'Arizona': 'AZ', 'Arkansas': 'AR', 'California': 'CA',
+    'Colorado': 'CO', 'Connecticut': 'CT', 'Delaware': 'DE', 'District of Columbia': 'DC', 'Florida': 'FL',
+    'Georgia': 'GA', 'Hawaii': 'HI', 'Idaho': 'ID', 'Illinois': 'IL', 'Indiana': 'IN',
+    'Iowa': 'IA', 'Kansas': 'KS', 'Kentucky': 'KY', 'Louisiana': 'LA', 'Maine': 'ME',
+    'Maryland': 'MD', 'Massachusetts': 'MA', 'Michigan': 'MI', 'Minnesota': 'MN', 'Mississippi': 'MS',
+    'Missouri': 'MO', 'Montana': 'MT', 'Nebraska': 'NE', 'Nevada': 'NV', 'New Hampshire': 'NH',
+    'New Jersey': 'NJ', 'New Mexico': 'NM', 'New York': 'NY', 'North Carolina': 'NC', 'North Dakota': 'ND',
+    'Ohio': 'OH', 'Oklahoma': 'OK', 'Oregon': 'OR', 'Pennsylvania': 'PA', 'Puerto Rico': 'PR',
+    'Rhode Island': 'RI', 'South Carolina': 'SC', 'South Dakota': 'SD', 'Tennessee': 'TN', 'Texas': 'TX',
+    'Utah': 'UT', 'Vermont': 'VT', 'Virginia': 'VA', 'Washington': 'WA', 'West Virginia': 'WV',
+    'Wisconsin': 'WI', 'Wyoming': 'WY'
+}
+
+# --- 2. Set Page Configuration ---
 st.set_page_config(
     page_title="US Lead Pipe Heatmap",
     page_icon="🌡️",
@@ -12,28 +28,21 @@ st.set_page_config(
     initial_sidebar_state="auto"
 )
 
-# --- 2. Load and Process Data ---
-
-STATE_COL = 'State'
-COUNT_COL = 'Lead_Content'
-
+# --- 3. Load and Process Data (Uses confirmed 'State' and 'Lead_Content' columns) ---
 try:
-    st.sidebar.header("Data Loading")
-    st.sidebar.info("Using 'State' and 'Lead_Content' columns from both CSVs.")
-    
-    # Load and rename columns for merging (using confirmed column names)
+    # --- Load Pipe Data ---
     df_proj = pd.read_csv("data/projected_pipes.csv").rename(
-        columns={STATE_COL: 'State_Code', COUNT_COL: 'Projected_Pipes'}
+        columns={'State': 'State_Name', 'Lead_Content': 'Projected_Pipes'}
     )
     df_meas = pd.read_csv("data/measured_pipes.csv").rename(
-        columns={STATE_COL: 'State_Code', COUNT_COL: 'Measured_Pipes'}
+        columns={'State': 'State_Name', 'Lead_Content': 'Measured_Pipes'}
     )
     
-    # Clean up and ensure State_Code is correct type (2-letter abbreviation for merging)
-    df_proj['State_Code'] = df_proj['State_Code'].astype(str).str.upper().str.strip()
-    df_meas['State_Code'] = df_meas['State_Code'].astype(str).str.upper().str.strip()
+    # --- Data Cleaning and Mapping ---
+    df_proj['State_Code'] = df_proj['State_Name'].astype(str).str.strip().map(STATE_TO_CODE)
+    df_meas['State_Code'] = df_meas['State_Name'].astype(str).str.strip().map(STATE_TO_CODE)
     
-    # Merge the two dataframes on the State_Code, fill missing data with 0, and calculate total
+    # --- Merge and Calculate Total ---
     pipes_data = pd.merge(df_proj[['State_Code', 'Projected_Pipes']],
                          df_meas[['State_Code', 'Measured_Pipes']],
                          on='State_Code',
@@ -41,12 +50,14 @@ try:
                          
     pipes_data['Total_Lead_Pipes'] = pipes_data['Projected_Pipes'] + pipes_data['Measured_Pipes']
     
+    # --- Sidebar Check (Fix: Removed 'caption' argument) ---
+    st.sidebar.header("Data Check: Top 5 States")
     st.sidebar.dataframe(pipes_data[['State_Code', 'Total_Lead_Pipes']].sort_values(
         by='Total_Lead_Pipes', ascending=False
-    ).head(), caption="Top 5 States by Lead Pipe Count")
+    ).head())
     
 except Exception as e:
-    st.error(f"Error loading or processing pipe data. Please ensure 'data/projected_pipes.csv' and 'data/measured_pipes.csv' are in the correct location and columns are correct. Error: {e}")
+    st.error(f"Error loading or processing pipe data. Please verify file locations and headers. Error: {e}")
     st.stop()
     
 # --- Load GeoJSON Data ---
@@ -59,11 +70,10 @@ except Exception as e:
     st.stop()
 
 
-# --- 3. Folium Map Creation (Choropleth) ---
+# --- 4. Folium Map Creation (Choropleth) ---
 st.title("US Lead Pipe Exposure Heatmap 🌡️")
-st.write("States are colored darker for a higher estimated total of lead pipes ('Lead_Content' in Projected + Measured). Click a state for detailed data.")
+st.write("States are colored darker for a higher estimated total of lead pipes. Click a state for detailed data.")
 
-# Centered on the contiguous United States
 us_lat = 39.8283
 us_lon = -98.5795
 us_zoom = 4
@@ -75,26 +85,21 @@ cp = folium.Choropleth(
     geo_data=us_state_data,
     data=pipes_data,
     columns=['State_Code', 'Total_Lead_Pipes'],
-    key_on='feature.id', # Matches the 'id' field (2-letter code) in the GeoJSON
-    fill_color='YlOrRd', # Yellow-Orange-Red color scheme, darker = more pipes
+    key_on='feature.id', # Joins 'State_Code' from pipes_data to the GeoJSON 'id' (2-letter code)
+    fill_color='YlOrRd', 
     fill_opacity=0.7,
     line_opacity=0.2,
     legend_name='Total Estimated Lead Pipes (Units: Pipe Count)',
     highlight=True
 ).add_to(m)
 
-# Add Tooltip and Click Pop-up to Choropleth
-style_function = lambda x: {'fillColor': '#ffffff', 'color':'#000000', 'fillOpacity': 0.1, 'weight': 0.1}
-highlight_function = lambda x: {'fillColor': '#000000', 'color':'#000000', 'fillOpacity': 0.50, 'weight': 0.1}
-
-# Create a custom GeoJson layer for tooltips and hover/click effects
+# Add Tooltip and Click Pop-up via a custom GeoJson layer
 NIL = folium.GeoJson(
     cp.geojson.data,
-    style_function=style_function, 
+    style_function=lambda x: {'fillColor': '#ffffff', 'color':'#000000', 'fillOpacity': 0.1, 'weight': 0.1}, 
     control=False,
-    highlight_function=highlight_function,
+    highlight_function=lambda x: {'fillColor': '#000000', 'color':'#000000', 'fillOpacity': 0.50, 'weight': 0.1},
     tooltip=folium.features.GeoJsonTooltip(
-        # The fields below are added to the GeoJSON data by the choropleth logic
         fields=['name', 'Total_Lead_Pipes', 'Projected_Pipes', 'Measured_Pipes'],
         aliases=['State:', 'Total Pipes:', 'Projected Pipes:', 'Measured Pipes:'],
         localize=True,
@@ -106,9 +111,8 @@ NIL = folium.GeoJson(
 m.add_child(NIL)
 
 
-# --- 4. Display Map and Capture Clicks ---
+# --- 5. Display Map and Handle Click Data ---
 st.header("Click Information")
-st.write("Click on a state in the map to see its total estimated lead pipe count.")
 
 map_data = st_folium(
     m,
@@ -117,10 +121,7 @@ map_data = st_folium(
     returned_objects=["last_object_clicked"]
 )
 
-# --- 5. Handle Click Data ---
-
 if map_data.get("last_object_clicked"):
-    # The ID matches the 2-letter state code from the GeoJSON
     state_id = map_data["last_object_clicked"]["id"]
     
     # Get the full state name from the GeoJSON properties
@@ -140,16 +141,12 @@ if map_data.get("last_object_clicked"):
         meas = clicked_data['Measured_Pipes'].iloc[0]
         
         st.info(f"""
-        - **Total Estimated Lead Pipes (Lead\_Content):** {total:,.0f}
-        - **Projected Pipes (Lead\_Content):** {proj:,.0f}
-        - **Measured Pipes (Lead\_Content):** {meas:,.0f}
+        - **Total Estimated Lead Pipes:** {total:,.0f}
+        - **Projected Pipes:** {proj:,.0f}
+        - **Measured Pipes:** {meas:,.0f}
         """)
     else:
         st.warning(f"No lead pipe data found for {state_name} in the provided CSVs.")
 
 else:
     st.info("No state clicked yet. Click a state to see its data.")
-
-# --- 6. Other Page Components ---
-st.sidebar.header("Map Data Details")
-st.sidebar.write("The map color intensity represents the sum of the **'Lead_Content'** columns from the projected and measured pipe datasets.")
