@@ -42,8 +42,6 @@ def load_data(path, is_geojson=False):
         
     return None
 
-# --- REMOVED: display_state_details function is no longer needed for hover functionality ---
-
 # --- 1. Main Application Function ---
 def main():
     st.set_page_config(
@@ -76,16 +74,15 @@ def main():
     
     # --- Prepare all data fields for Tooltip (Formatted Strings) ---
     # We must format the data here so it appears cleanly on hover
+    # Format counts by converting to integer first to remove decimals, then apply comma formatting
     pipe_df['Reports_Rank'] = '#' + pipe_df['Lead_Rank'].astype(str)
     pipe_df['Total_Pipes_Fmt'] = pipe_df['Total'].apply(lambda x: f"{int(x):,}")
     pipe_df['Lead_Pipes_Fmt'] = pipe_df['Lead_Content'].apply(lambda x: f"{int(x):,}")
     pipe_df['Galvanized_Pipes_Fmt'] = pipe_df['Standalone_Galvanized'].apply(lambda x: f"{int(x):,}")
     pipe_df['Not_Lead_Pipes_Fmt'] = pipe_df['Not_Lead_or_Galvanized'].apply(lambda x: f"{int(x):,}")
     
-    # Select only the columns needed for the map/tooltip and index by State
-    pipe_data_for_map = pipe_df[['State', '%_Total_with_lead_float', 'Reports_Rank', 
-                                 '%_Total_with_lead', 'Total_Pipes_Fmt', 'Lead_Pipes_Fmt', 
-                                 'Galvanized_Pipes_Fmt', 'Not_Lead_Pipes_Fmt']].set_index('State')
+    # Create the indexed version for quick data look-up when generating tooltips
+    pipe_data_for_map = pipe_df.set_index('State')
     
     # --- 3. Folium Map Creation ---
     us_lat = 39.8283
@@ -93,10 +90,11 @@ def main():
     m = folium.Map(location=[us_lat, us_lon], zoom_start=4, tiles='cartodbdarkmatter')
 
     # Add Choropleth Heatmap
+    # FIX APPLIED: We pass the un-indexed pipe_df to Folium for the choropleth data/columns mapping
     choropleth = folium.Choropleth(
         geo_data=us_state_data,
         name='Lead Content Heatmap',
-        data=pipe_data_for_map,
+        data=pipe_df, # <--- CORRECT: Use the DataFrame where 'State' is a column
         columns=['State', '%_Total_with_lead_float'],
         key_on='feature.properties.name',
         fill_color='YlOrRd',
@@ -107,11 +105,12 @@ def main():
     ).add_to(m)
 
     # --- Add Data to GeoJSON features for Tooltips ---
-    # This step joins your formatted data to the map features
+    # This step uses the indexed data to attach formatted strings to the map features
     for feature in choropleth.geojson.data['features']:
         state_name = feature['properties']['name']
         if state_name in pipe_data_for_map.index:
             state_data = pipe_data_for_map.loc[state_name]
+            # Attach the formatted strings as new properties to the GeoJSON feature
             feature['properties']['Lead_Rank'] = state_data['Reports_Rank']
             feature['properties']['Pct_Lead'] = state_data['%_Total_with_lead']
             feature['properties']['Total_Pipes'] = state_data['Total_Pipes_Fmt']
@@ -153,13 +152,13 @@ def main():
         folium.features.GeoJsonTooltip(
             fields=tooltip_fields,
             aliases=tooltip_aliases,
-            localize=True, # Recommended for better display
-            sticky=False, # Allows the tooltip to move freely
+            localize=True,
+            sticky=False,
             style="background-color: white; color: black; font-family: monospace; font-size: 10px; padding: 5px;"
         )
     )
 
-    # --- 4. Display Map (Click capture removed) ---
+    # --- 4. Display Map ---
     st.markdown("---")
     st.info("Hover over any state in the map below to view all its specific lead pipe data and national ranking.")
     
@@ -170,11 +169,10 @@ def main():
         height=500
     )
 
-    # --- 5. Sidebar and Click logic removed (since we are using hover tooltips) ---
+    # --- 5. Sidebar and Footer ---
     st.sidebar.header("Map Functionality")
     st.sidebar.info("Data details now appear on **hover** directly on the map via a tooltip.")
     
-    # --- 6. Main Content Footer ---
     st.markdown("---")
     st.header("Map Interpretation")
     st.caption("The map visualizes the lead pipe data based on the `%_Total_with_lead` column, where a darker red indicates a higher percentage.")
