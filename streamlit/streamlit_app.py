@@ -5,7 +5,6 @@ import json
 import pandas as pd
 
 # --- 1. State Name to Code Mapping ---
-# Necessary to merge the full state names in your CSV with the 2-letter codes in the GeoJSON.
 STATE_TO_CODE = {
     'Alabama': 'AL', 'Alaska': 'AK', 'Arizona': 'AZ', 'Arkansas': 'AR', 'California': 'CA',
     'Colorado': 'CO', 'Connecticut': 'CT', 'Delaware': 'DE', 'District of Columbia': 'DC', 'Florida': 'FL',
@@ -28,7 +27,7 @@ st.set_page_config(
     initial_sidebar_state="auto"
 )
 
-# --- 3. Load and Process Data (Uses confirmed 'State' and 'Lead_Content' columns) ---
+# --- 3. Load and Process Data (Fix Applied: Added .dropna()) ---
 try:
     # --- Load Pipe Data ---
     df_proj = pd.read_csv("data/projected_pipes.csv").rename(
@@ -42,6 +41,10 @@ try:
     df_proj['State_Code'] = df_proj['State_Name'].astype(str).str.strip().map(STATE_TO_CODE)
     df_meas['State_Code'] = df_meas['State_Name'].astype(str).str.strip().map(STATE_TO_CODE)
     
+    # FIX: Filter out rows where State_Code mapping failed (produced NaN)
+    df_proj = df_proj.dropna(subset=['State_Code'])
+    df_meas = df_meas.dropna(subset=['State_Code'])
+    
     # --- Merge and Calculate Total ---
     pipes_data = pd.merge(df_proj[['State_Code', 'Projected_Pipes']],
                          df_meas[['State_Code', 'Measured_Pipes']],
@@ -50,7 +53,6 @@ try:
                          
     pipes_data['Total_Lead_Pipes'] = pipes_data['Projected_Pipes'] + pipes_data['Measured_Pipes']
     
-    # --- Sidebar Check (Fix: Removed 'caption' argument) ---
     st.sidebar.header("Data Check: Top 5 States")
     st.sidebar.dataframe(pipes_data[['State_Code', 'Total_Lead_Pipes']].sort_values(
         by='Total_Lead_Pipes', ascending=False
@@ -61,7 +63,7 @@ except Exception as e:
     st.stop()
     
 # --- Load GeoJSON Data ---
-file_path = "data/us_states.json"
+file_path = "us_states.json"
 try:
     with open(file_path, "r") as f:
         us_state_data = json.load(f) 
