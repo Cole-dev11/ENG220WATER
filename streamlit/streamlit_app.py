@@ -5,7 +5,6 @@ import json
 import pandas as pd
 import numpy as np
 import os
-import altair as alt # <-- ALTAIR IMPORT
 
 # --- Define File Paths ---
 DATA_FILE_PATH = "data/projected_pipes.csv"
@@ -74,6 +73,8 @@ def main():
     pipe_df['Lead_Rank'] = pipe_df['%_Total_with_lead_float'].rank(method='min', ascending=False).astype(int)
     
     # --- Prepare all data fields for Tooltip (Formatted Strings) ---
+    # We must format the data here so it appears cleanly on hover
+    # Format counts by converting to integer first to remove decimals, then apply comma formatting
     pipe_df['Reports_Rank'] = '#' + pipe_df['Lead_Rank'].astype(str)
     pipe_df['Total_Pipes_Fmt'] = pipe_df['Total'].apply(lambda x: f"{int(x):,}")
     pipe_df['Lead_Pipes_Fmt'] = pipe_df['Lead_Content'].apply(lambda x: f"{int(x):,}")
@@ -165,68 +166,7 @@ def main():
         height=500
     )
 
-    # --- 5. Interactive Bar Chart (MODIFIED FOR SINGLE SELECT) ---
-    
-    st.markdown("---")
-    st.header("State-by-State Pipe Data Comparison 📊")
-
-    # 5a. Define columns for the user to select
-    chart_columns = {
-        '% Total with Lead': '%_Total_with_lead_float',
-        'Total Pipes Count': 'Total',
-        'Lead Pipes Count': 'Lead_Content',
-        'Standalone Galvanized Count': 'Standalone_Galvanized',
-        'Not Lead or Galvanized Count': 'Not_Lead_or_Galvanized',
-    }
-    
-    # Use st.selectbox for single selection
-    selected_option = st.selectbox(
-        "Select **one** data point to display on the Y-axis:",
-        options=list(chart_columns.keys()),
-        index=0 # Default to the first option
-    )
-    
-    if not selected_option:
-        st.warning("Please select a data point to display on the chart.")
-    else:
-        # Get the DataFrame column name for the single selection
-        selected_col_df_name = chart_columns[selected_option]
-        
-        # 5b. Prepare data for Altair (Select only the necessary columns)
-        df_chart = pipe_df[['State', selected_col_df_name]].copy()
-
-        # 5c. Create the Altair Chart
-        
-        # Base chart setup
-        base = alt.Chart(df_chart).encode(
-            # X-axis is the state name, sorting by the metric value (descending)
-            x=alt.X(
-                'State:N', 
-                sort=alt.SortField(field=selected_col_df_name, op="max", order='descending'), 
-                axis=alt.Axis(labelAngle=-45)
-            ), 
-            # Y-axis is the single dynamic column
-            y=alt.Y(selected_col_df_name, title=selected_option),
-            # Color can be based on the value itself for a gradient effect
-            color=alt.Color(selected_col_df_name, legend=None)
-        ).properties(
-            title=f'{selected_option} by State'
-        )
-
-        # Bar marks
-        bars = base.mark_bar().encode(
-            # Tooltip for interactivity
-            tooltip=[
-                'State', 
-                alt.Tooltip(selected_col_df_name, title=selected_option, format=',.2f')
-            ]
-        )
-        
-        chart = bars.interactive() # Make the chart zoomable/pannable
-        
-        st.altair_chart(chart, use_container_width=True)
-
-    # --- 6. Sidebar and Footer (MODIFIED) ---
+    # --- 5. Sidebar and Footer (MODIFIED) ---
     st.sidebar.header("Map Functionality")
     st.sidebar.info("Data details now appear on **hover** directly on the map via a tooltip.")
     
@@ -239,6 +179,8 @@ def main():
     st.sidebar.markdown(f"* Pipe Data: **{DATA_FILE_PATH}**")
     st.sidebar.markdown(f"* Map Outlines: **{GEOJSON_FILE_PATH}**")
     
+    # The original st.markdown("---") after the map is removed as the content is moved to the sidebar
+
 
 if __name__ == "__main__":
     main()
