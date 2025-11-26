@@ -6,14 +6,21 @@ import pandas as pd
 import numpy as np
 import os
 
-# --- Define File Paths ---
 DATA_FILE_PATH = "data/projected_pipes.csv"
 GEOJSON_FILE_PATH = "data/us_state_boundaries.geojson"
 
-# --- Helper function to load data and handle errors ---
 @st.cache_data
 def load_data(path, is_geojson=False):
-    """Loads CSV or GeoJSON data and handles file errors."""
+    """
+    Loads CSV or GeoJSON data and handles common file and parsing errors.
+
+    Args:
+        path (str): The file path to the data.
+        is_geojson (bool): If True, loads the file as GeoJSON; otherwise, loads as CSV.
+
+    Returns:
+        The loaded data (pandas DataFrame or dict), or None if an error occurs.
+    """
     if not os.path.exists(path):
         st.error(f"Error: File not found at '{path}'.")
         st.error("Please ensure the file is correctly placed in your project directory.")
@@ -42,8 +49,11 @@ def load_data(path, is_geojson=False):
         
     return None
 
-# --- 1. Main Application Function ---
 def main():
+    """
+    Sets up the Streamlit application, loads and processes data, creates a Folium 
+    choropleth map based on user selection, and displays the map and sidebar.
+    """
     st.set_page_config(
         page_title="US Pipe Lead Content Heatmap",
         page_icon="🗺️",
@@ -53,15 +63,12 @@ def main():
 
     st.title("Lead Pipe Content Heatmap by US State 🗺️")
 
-    # --- 2. Data Loading and Processing ---
     pipe_df = load_data(DATA_FILE_PATH)
     us_state_data = load_data(GEOJSON_FILE_PATH, is_geojson=True)
 
     if pipe_df is None or us_state_data is None:
         st.stop()
     
-    # --- Data Cleaning and Preparation ---
-    # Convert the percentage column to float for choropleth mapping
     pipe_df['%_Total_with_lead_float'] = (
         pipe_df['%_Total_with_lead']
         .str.rstrip('%')
@@ -70,22 +77,16 @@ def main():
     )
     pipe_df = pipe_df.fillna(0)
 
-    # --- Data Ranking ---
     pipe_df['Lead_Rank'] = pipe_df['%_Total_with_lead_float'].rank(method='min', ascending=False).astype(int)
     
-    # --- Prepare all data fields for Tooltip (Formatted Strings) ---
     pipe_df['Reports_Rank'] = '#' + pipe_df['Lead_Rank'].astype(str)
     pipe_df['Total_Pipes_Fmt'] = pipe_df['Total'].apply(lambda x: f"{int(x):,}")
     pipe_df['Lead_Pipes_Fmt'] = pipe_df['Lead_Content'].apply(lambda x: f"{int(x):,}")
     pipe_df['Galvanized_Pipes_Fmt'] = pipe_df['Standalone_Galvanized'].apply(lambda x: f"{int(x):,}")
     pipe_df['Not_Lead_Pipes_Fmt'] = pipe_df['Not_Lead_or_Galvanized'].apply(lambda x: f"{int(x):,}")
     
-    # Create the indexed version for quick data look-up when generating tooltips
     pipe_data_for_map = pipe_df.set_index('State')
     
-    # --- Dropdown Menu Setup ---
-    
-    # 1. Define the mapping options and their display names
     MAP_OPTIONS = {
         '%_Total_with_lead_float': 'Percentage of Total Pipes with Lead (%)',
         'Lead_Content': 'Count of Pipes with Lead Content',
@@ -94,39 +95,34 @@ def main():
         'Not_Lead_or_Galvanized': 'Count of Not Lead or Galvanized Pipes'
     }
     
-    # 2. Create the Streamlit selectbox
     selected_key = st.selectbox(
         '**Select the data to display on the heatmap:**',
-        options=list(MAP_OPTIONS.keys()), # The actual column keys
-        format_func=lambda x: MAP_OPTIONS[x], # Function to display the friendly name
-        index=0 # Default to the first option
+        options=list(MAP_OPTIONS.keys()),
+        format_func=lambda x: MAP_OPTIONS[x],
+        index=0
     )
     
-    # 3. Get the corresponding friendly name for the legend
     legend_title = MAP_OPTIONS[selected_key]
     
-    st.markdown("---") # Visual separator between the dropdown and the map
+    st.markdown("---")
 
-    # --- 3. Folium Map Creation (Using selected_key) ---
     us_lat = 39.8283
     us_lon = -98.5795
     m = folium.Map(location=[us_lat, us_lon], zoom_start=4, tiles='cartodbdarkmatter')
 
-    # Add Choropleth Heatmap, now using the dynamic `selected_key` and `legend_title`
     choropleth = folium.Choropleth(
         geo_data=us_state_data,
         name='Data Heatmap',
         data=pipe_df, 
-        columns=['State', selected_key], # Use the selected column key
+        columns=['State', selected_key],
         key_on='feature.properties.name',
         fill_color='YlOrRd',
         fill_opacity=0.7,
         line_opacity=0.2,
-        legend_name=legend_title, # Use the dynamic legend title
+        legend_name=legend_title,
         highlight=True
     ).add_to(m)
 
-    # --- Add Data to GeoJSON features for Tooltips ---
     for feature in choropleth.geojson.data['features']:
         state_name = feature['properties']['name']
         if state_name in pipe_data_for_map.index:
@@ -138,7 +134,6 @@ def main():
             feature['properties']['Standalone_Galvanized_Count'] = state_data['Galvanized_Pipes_Fmt']
             feature['properties']['Not_Lead_Count'] = state_data['Not_Lead_Pipes_Fmt']
         else:
-            # Handle states not in data (e.g., US territories)
             feature['properties']['Lead_Rank'] = 'N/A'
             feature['properties']['Pct_Lead'] = 'N/A'
             feature['properties']['Total_Pipes'] = 'N/A'
@@ -146,7 +141,6 @@ def main():
             feature['properties']['Standalone_Galvanized_Count'] = 'N/A'
             feature['properties']['Not_Lead_Count'] = 'N/A'
             
-    # --- Create the HOVER Tooltip ---
     tooltip_fields = [
         'name',
         'Lead_Rank',
@@ -167,7 +161,6 @@ def main():
         'Count: Not Lead or Galvanized'
     ]
     
-    # Add the tooltip to the Choropleth's GeoJson layer
     choropleth.geojson.add_child(
         folium.features.GeoJsonTooltip(
             fields=tooltip_fields,
@@ -177,21 +170,13 @@ def main():
             style="background-color: white; color: black; font-family: monospace; font-size: 10px; padding: 5px;"
         )
     )
-
-    # --- 4. Display Map ---
-    # The st.info boxes were removed here
     
-    # Display the map without needing to capture clicks
     st_folium(
         m,
         use_container_width=True,
         height=500
     )
 
-    # --- 5. Sidebar and Footer ---
-    # The "Map Functionality" header and st.info were removed here
-    
-    # Update the caption to reflect the dynamic nature
     st.sidebar.markdown("---")
     st.sidebar.header("Map Interpretation")
     st.sidebar.caption("The map visualizes the pipe data based on your selection. A darker red indicates a higher value for the chosen metric.")
