@@ -90,11 +90,10 @@ def main():
     m = folium.Map(location=[us_lat, us_lon], zoom_start=4, tiles='cartodbdarkmatter')
 
     # Add Choropleth Heatmap
-    # FIX APPLIED: We pass the un-indexed pipe_df to Folium for the choropleth data/columns mapping
     choropleth = folium.Choropleth(
         geo_data=us_state_data,
         name='Lead Content Heatmap',
-        data=pipe_df, # <--- CORRECT: Use the DataFrame where 'State' is a column
+        data=pipe_df, 
         columns=['State', '%_Total_with_lead_float'],
         key_on='feature.properties.name',
         fill_color='YlOrRd',
@@ -105,12 +104,10 @@ def main():
     ).add_to(m)
 
     # --- Add Data to GeoJSON features for Tooltips ---
-    # This step uses the indexed data to attach formatted strings to the map features
     for feature in choropleth.geojson.data['features']:
         state_name = feature['properties']['name']
         if state_name in pipe_data_for_map.index:
             state_data = pipe_data_for_map.loc[state_name]
-            # Attach the formatted strings as new properties to the GeoJSON feature
             feature['properties']['Lead_Rank'] = state_data['Reports_Rank']
             feature['properties']['Pct_Lead'] = state_data['%_Total_with_lead']
             feature['properties']['Total_Pipes'] = state_data['Total_Pipes_Fmt']
@@ -169,17 +166,20 @@ def main():
         height=500
     )
 
-    # --- 5. Sidebar and Footer ---
+    # --- 5. Sidebar and Footer (MODIFIED) ---
     st.sidebar.header("Map Functionality")
     st.sidebar.info("Data details now appear on **hover** directly on the map via a tooltip.")
     
-    st.markdown("---")
-    st.header("Map Interpretation")
-    st.caption("The map visualizes the lead pipe data based on the `%_Total_with_lead` column, where a darker red indicates a higher percentage.")
+    # --- MOVED to Sidebar ---
+    st.sidebar.markdown("---")
+    st.sidebar.header("Map Interpretation")
+    st.sidebar.caption("The map visualizes the lead pipe data based on the `%_Total_with_lead` column, where a darker red indicates a higher percentage.")
     
-    st.subheader("Data Sources")
-    st.markdown(f"* Pipe Data: **{DATA_FILE_PATH}**")
-    st.markdown(f"* Map Outlines: **{GEOJSON_FILE_PATH}**")
+    st.sidebar.subheader("Data Sources")
+    st.sidebar.markdown(f"* Pipe Data: **{DATA_FILE_PATH}**")
+    st.sidebar.markdown(f"* Map Outlines: **{GEOJSON_FILE_PATH}**")
+    
+    # The original st.markdown("---") after the map is removed as the content is moved to the sidebar
 
 
 if __name__ == "__main__":
