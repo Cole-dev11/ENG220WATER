@@ -1,22 +1,107 @@
 import streamlit as st
+import folium
+from streamlit_folium import st_folium
+import json
 
 # --- 1. Set Page Configuration ---
-# This is the essential part for setting up the browser tab and layout.
 st.set_page_config(
-    page_title="Blank Streamlit Template", # Change the title in the browser tab
-    page_icon="🧊",                        # You can use any emoji here
-    layout="wide",                         # Use 'wide' layout
+    page_title="US States Interactive Map",
+    page_icon="🗺️",
+    layout="wide",
     initial_sidebar_state="auto"
 )
 
-# --- 2. Main Page Content (BLANK) ---
-# All previous content (title, map, file loading, etc.) has been removed.
-# This results in an empty, blank screen when the app runs.
+# --- 2. Main Page Content ---
+st.title("Interactive Map of US States 🗺️")
+st.write("This map is fully interactive. You can zoom, pan, and click on a state.")
 
-# st.title("Your New App Title")
-# st.write("Start building your application here!")
+# --- Load Local GeoJSON File ---
+# This path matches the 'us_states.json' file you uploaded.
+file_path = "data/us_states.json"
+try:
+    with open(file_path, "r") as f:
+        # Load the GeoJSON data into a variable
+        us_state_data = json.load(f) 
+except FileNotFoundError:
+    st.error(f"Error: GeoJSON file not found at '{file_path}'.")
+    st.error("Please make sure the file is in the same directory as your script.")
+    st.stop() # Stop the app if the file isn't found
+except json.JSONDecodeError:
+    st.error(f"Error: Could not read or decode the GeoJSON file.")
+    st.error("Please ensure the file is a valid GeoJSON.")
+    st.stop()
+except Exception as e:
+    st.error(f"An unexpected error occurred while loading the file: {e}")
+    st.stop()
 
-# --- 3. Sidebar Content (BLANK) ---
-# The sidebar exists but is empty unless you add components to it.
-# st.sidebar.header("Sidebar")
-# st.sidebar.write("Add your controls here!")
+
+# --- 3. Folium Map Creation ---
+# Centered on the contiguous United States for a good view
+us_lat = 39.8283
+us_lon = -98.5795
+us_zoom = 4
+
+m = folium.Map(location=[us_lat, us_lon], zoom_start=us_zoom)
+
+# --- Add State Outlines (from local data) ---
+
+folium.GeoJson(
+    us_state_data, # Pass the loaded data variable here
+    name="US States",
+    
+    style_function=lambda feature: {
+        'fillColor': '#4682B4', # Steel Blue
+        'color': 'black',
+        'weight': 1,
+        'fillOpacity': 0.3,
+    },
+    
+    highlight_function=lambda x: {
+        'weight': 3,
+        'color': '#FF4500', # Orange Red for highlight
+        'fillOpacity': 0.6,
+    },
+    
+    tooltip=folium.features.GeoJsonTooltip(
+        # **UPDATED FIELD:** Using 'name' from your GeoJSON file
+        fields=['name'],     
+        aliases=['State:'],   
+        sticky=True
+    )
+).add_to(m)
+
+# --- 4. Display Map and Capture Clicks ---
+st.write("Click on a state to see its name below.")
+map_data = st_folium(
+    m,
+    use_container_width=True,
+    height=500,
+    returned_objects=["last_object_clicked"]
+)
+
+# --- 5. Handle Click Data ---
+st.header("Click Information")
+
+if map_data.get("last_object_clicked"):
+    # **UPDATED FIELD:** Using 'name' from your GeoJSON file
+    try:
+        state_name = map_data["last_object_clicked"]["properties"]["name"]
+        st.success(f"You clicked on the state: **{state_name}**!")
+    except KeyError:
+        st.warning("Clicked on the map, but couldn't find the state name property. Check the GeoJSON file's properties.")
+else:
+    st.info("No state clicked yet.")
+
+
+# --- 6. Other Page Components ---
+st.sidebar.header("Map Options")
+st.sidebar.write("Future map controls can go here!")
+
+col1, col2 = st.columns(2)
+with col1:
+    st.header("Map Info")
+    st.write("The map above shows the outline of all US states.")
+
+with col2:
+    st.header("Next Steps")
+    st.write("You can use the clicked state name to show specific state-level data.")
