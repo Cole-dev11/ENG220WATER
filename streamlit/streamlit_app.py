@@ -61,7 +61,7 @@ except Exception as e:
     st.stop()
     
 # --- Load GeoJSON Data ---
-file_path = "us_states.json"
+file_path = "data/us_states.json"
 try:
     with open(file_path, "r") as f:
         us_state_data = json.load(f) 
