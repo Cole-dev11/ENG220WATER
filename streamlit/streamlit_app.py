@@ -17,7 +17,7 @@ st.set_page_config(
 # --- Define File Paths ---
 # Use the file path you provided
 DATA_FILE_PATH = "data/projected_pipes.csv"
-GEOJSON_FILE_PATH = "data/us_states.json"
+GEOJSON_FILE_PATH = "data/us_state_boundaries.geojson"
 
 ## Helper function to load data and handle errors
 @st.cache_data
