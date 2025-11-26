@@ -42,51 +42,7 @@ def load_data(path, is_geojson=False):
         
     return None
 
-# --- NEW FUNCTION: Display State Details in Sidebar ---
-def display_state_details(state_name, pipe_data):
-    """
-    Displays the detailed pipe data for a specific state in the Streamlit sidebar.
-    """
-    if state_name and state_name in pipe_data.index:
-        state_data = pipe_data.loc[state_name]
-        
-        # --- Displaying the Requested Information ---
-        st.sidebar.header(f"Details for {state_name} 📊")
-        
-        # National Ranking
-        rank = int(state_data['Lead_Rank_out_of_50'])
-        st.sidebar.metric(
-            label="Lead Pipe Percentage Rank",
-            value=f"#{rank}",
-            delta=f"Out of {len(pipe_data)} states/territories"
-        )
-        
-        # Total Pipes with Lead
-        st.sidebar.subheader("Lead Content Summary")
-        st.sidebar.metric(
-            label="% of Total Pipes with Lead",
-            value=state_data['%_Total_with_lead'],
-            delta=f"Total Pipes: {state_data['Total']:,}" # Add comma formatting
-        )
-            
-        st.sidebar.subheader("Pipe Material Breakdown (Count)")
-        # Show the breakdown of the pipe types
-        st.sidebar.table(pd.DataFrame({
-            'Pipe Type': ['Lead Content', 'Standalone Galvanized', 'Not Lead or Galvanized'],
-            'Count': [
-                f"{state_data['Lead_Content']:,}", 
-                f"{state_data['Standalone_Galvanized']:,}", 
-                f"{state_data['Not_Lead_or_Galvanized']:,}",
-            ]
-        }).set_index('Pipe Type'))
-        
-        st.sidebar.caption("Data is pulled from the loaded 'projected_pipes.csv' file.")
-        
-    elif state_name:
-        # Handle cases where the state name exists in GeoJSON but not in your CSV data
-        st.sidebar.warning(f"Click detected on **{state_name}**. No detailed data found for this location in the CSV file.")
-    else:
-        st.sidebar.info("👈 Please click on a state in the map to view its data.")
+# --- REMOVED: display_state_details function is no longer needed for hover functionality ---
 
 # --- 1. Main Application Function ---
 def main():
@@ -106,7 +62,7 @@ def main():
     if pipe_df is None or us_state_data is None:
         st.stop()
     
-    # --- Data Cleaning and Preparation (as before) ---
+    # --- Data Cleaning and Preparation ---
     pipe_df['%_Total_with_lead_float'] = (
         pipe_df['%_Total_with_lead']
         .str.rstrip('%')
@@ -115,9 +71,21 @@ def main():
     )
     pipe_df = pipe_df.fillna(0)
 
-    # --- Data Ranking (as before) ---
-    pipe_df['Lead_Rank_out_of_50'] = pipe_df['%_Total_with_lead_float'].rank(method='min', ascending=False)
-    pipe_data_indexed = pipe_df.set_index('State')
+    # --- Data Ranking ---
+    pipe_df['Lead_Rank'] = pipe_df['%_Total_with_lead_float'].rank(method='min', ascending=False).astype(int)
+    
+    # --- Prepare all data fields for Tooltip (Formatted Strings) ---
+    # We must format the data here so it appears cleanly on hover
+    pipe_df['Reports_Rank'] = '#' + pipe_df['Lead_Rank'].astype(str)
+    pipe_df['Total_Pipes_Fmt'] = pipe_df['Total'].apply(lambda x: f"{int(x):,}")
+    pipe_df['Lead_Pipes_Fmt'] = pipe_df['Lead_Content'].apply(lambda x: f"{int(x):,}")
+    pipe_df['Galvanized_Pipes_Fmt'] = pipe_df['Standalone_Galvanized'].apply(lambda x: f"{int(x):,}")
+    pipe_df['Not_Lead_Pipes_Fmt'] = pipe_df['Not_Lead_or_Galvanized'].apply(lambda x: f"{int(x):,}")
+    
+    # Select only the columns needed for the map/tooltip and index by State
+    pipe_data_for_map = pipe_df[['State', '%_Total_with_lead_float', 'Reports_Rank', 
+                                 '%_Total_with_lead', 'Total_Pipes_Fmt', 'Lead_Pipes_Fmt', 
+                                 'Galvanized_Pipes_Fmt', 'Not_Lead_Pipes_Fmt']].set_index('State')
     
     # --- 3. Folium Map Creation ---
     us_lat = 39.8283
@@ -125,10 +93,10 @@ def main():
     m = folium.Map(location=[us_lat, us_lon], zoom_start=4, tiles='cartodbdarkmatter')
 
     # Add Choropleth Heatmap
-    folium.Choropleth(
+    choropleth = folium.Choropleth(
         geo_data=us_state_data,
         name='Lead Content Heatmap',
-        data=pipe_df,
+        data=pipe_data_for_map,
         columns=['State', '%_Total_with_lead_float'],
         key_on='feature.properties.name',
         fill_color='YlOrRd',
@@ -138,41 +106,75 @@ def main():
         highlight=True
     ).add_to(m)
 
-    # Add a GeoJson layer *again* for custom tooltips and click handling
-    state_layer = folium.GeoJson(
-        us_state_data, 
-        name="US States Click Layer",
-        style_function=lambda x: {'fillColor': 'clear', 'color': 'black', 'weight': 0.5, 'fillOpacity': 0},
-        tooltip=folium.features.GeoJsonTooltip(
-            fields=['name'],
-            aliases=['State:'],
-            sticky=True
-        )
-    ).add_to(m)
-
-    # --- 4. Display Map and Capture Clicks ---
-    st.markdown("---")
-    st.info("Click on any state in the map below to view its specific lead pipe data and national ranking in the **sidebar**.")
+    # --- Add Data to GeoJSON features for Tooltips ---
+    # This step joins your formatted data to the map features
+    for feature in choropleth.geojson.data['features']:
+        state_name = feature['properties']['name']
+        if state_name in pipe_data_for_map.index:
+            state_data = pipe_data_for_map.loc[state_name]
+            feature['properties']['Lead_Rank'] = state_data['Reports_Rank']
+            feature['properties']['Pct_Lead'] = state_data['%_Total_with_lead']
+            feature['properties']['Total_Pipes'] = state_data['Total_Pipes_Fmt']
+            feature['properties']['Lead_Content_Count'] = state_data['Lead_Pipes_Fmt']
+            feature['properties']['Standalone_Galvanized_Count'] = state_data['Galvanized_Pipes_Fmt']
+            feature['properties']['Not_Lead_Count'] = state_data['Not_Lead_Pipes_Fmt']
+        else:
+            # Handle states not in data (e.g., US territories)
+            feature['properties']['Lead_Rank'] = 'N/A'
+            feature['properties']['Pct_Lead'] = 'N/A'
+            feature['properties']['Total_Pipes'] = 'N/A'
+            feature['properties']['Lead_Content_Count'] = 'N/A'
+            feature['properties']['Standalone_Galvanized_Count'] = 'N/A'
+            feature['properties']['Not_Lead_Count'] = 'N/A'
+            
+    # --- Create the new HOVER Tooltip ---
+    tooltip_fields = [
+        'name',
+        'Lead_Rank',
+        'Pct_Lead',
+        'Total_Pipes',
+        'Lead_Content_Count',
+        'Standalone_Galvanized_Count',
+        'Not_Lead_Count'
+    ]
     
-    map_data = st_folium(
-        m,
-        use_container_width=True,
-        height=500,
-        returned_objects=["last_object_clicked"]
+    tooltip_aliases = [
+        'State',
+        'National Rank',
+        '% Total with Lead',
+        'Total Pipes',
+        'Count: Lead Content',
+        'Count: Standalone Galvanized',
+        'Count: Not Lead or Galvanized'
+    ]
+    
+    # Add the tooltip to the Choropleth's GeoJson layer
+    choropleth.geojson.add_child(
+        folium.features.GeoJsonTooltip(
+            fields=tooltip_fields,
+            aliases=tooltip_aliases,
+            localize=True, # Recommended for better display
+            sticky=False, # Allows the tooltip to move freely
+            style="background-color: white; color: black; font-family: monospace; font-size: 10px; padding: 5px;"
+        )
     )
 
-    # --- 5. Handle Click Data and Display Details ---
-    clicked_state_name = ''
-    if map_data and map_data.get("last_object_clicked"):
-        # Get the state name from the clicked object's properties
-        clicked_props = map_data["last_object_clicked"].get("properties", {})
-        clicked_state_name = clicked_props.get("name", '')
+    # --- 4. Display Map (Click capture removed) ---
+    st.markdown("---")
+    st.info("Hover over any state in the map below to view all its specific lead pipe data and national ranking.")
+    
+    # Display the map without needing to capture clicks
+    st_folium(
+        m,
+        use_container_width=True,
+        height=500
+    )
 
-    # --- Display State-Specific Data in the Sidebar ---
-    # The display logic has been moved to this function, which uses st.sidebar
-    display_state_details(clicked_state_name, pipe_data_indexed)
-
-    # --- 6. Main Content Footer (Re-position original sidebar content) ---
+    # --- 5. Sidebar and Click logic removed (since we are using hover tooltips) ---
+    st.sidebar.header("Map Functionality")
+    st.sidebar.info("Data details now appear on **hover** directly on the map via a tooltip.")
+    
+    # --- 6. Main Content Footer ---
     st.markdown("---")
     st.header("Map Interpretation")
     st.caption("The map visualizes the lead pipe data based on the `%_Total_with_lead` column, where a darker red indicates a higher percentage.")
