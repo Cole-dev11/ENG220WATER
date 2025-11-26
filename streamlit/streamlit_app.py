@@ -95,18 +95,25 @@ cp = folium.Choropleth(
     highlight=True
 ).add_to(m)
 
-# 💡 FIX: Add Tooltip directly to the Choropleth's GeoJson data (cp.geojson)
-# This ensures the tooltip has access to the merged data fields from pipes_data.
+# 💡 FIX: Use a lambda function in the tooltip fields to safely access properties.
+# This prevents the AssertionError if the merged data (pipes_data fields) is missing 
+# for a GeoJSON feature (e.g., if a territory is in the GeoJSON but not in your CSVs).
+
+tooltip_fields = [
+    'name', # Standard GeoJSON property (State Name)
+    (lambda x: x['properties'].get('Total_Lead_Pipes', 'N/A')),
+    (lambda x: x['properties'].get('Projected_Pipes', 'N/A')),
+    (lambda x: x['properties'].get('Measured_Pipes', 'N/A'))
+]
+
 folium.features.GeoJsonTooltip(
-    fields=['name', 'Total_Lead_Pipes', 'Projected_Pipes', 'Measured_Pipes'],
+    fields=tooltip_fields,
     aliases=['State:', 'Total Pipes:', 'Projected Pipes:', 'Measured Pipes:'],
     localize=True,
     sticky=False,
     labels=True,
     style=("background-color: white; color: #333333; font-family: arial; font-size: 12px; padding: 10px;")
-).add_to(cp.geojson)
-
-# The original NIL GeoJson layer is removed as it was causing the AssertionError
+).add_to(cp.geojson) # Correctly attached to the choropleth's GeoJson data
 
 # --- 5. Display Map and Handle Click Data ---
 st.header("Click Information")
