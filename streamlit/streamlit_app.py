@@ -2,155 +2,106 @@ import streamlit as st
 import folium
 from streamlit_folium import st_folium
 import json
-import pandas as pd
 
-# --- 1. State Name to Code Mapping ---
-STATE_TO_CODE = {
-    'Alabama': 'AL', 'Alaska': 'AK', 'Arizona': 'AZ', 'Arkansas': 'AR', 'California': 'CA',
-    'Colorado': 'CO', 'Connecticut': 'CT', 'Delaware': 'DE', 'District of Columbia': 'DC', 'Florida': 'FL',
-    'Georgia': 'GA', 'Hawaii': 'HI', 'Idaho': 'ID', 'Illinois': 'IL', 'Indiana': 'IN',
-    'Iowa': 'IA', 'Kansas': 'KS', 'Kentucky': 'KY', 'Louisiana': 'LA', 'Maine': 'ME',
-    'Maryland': 'MD', 'Massachusetts': 'MA', 'Michigan': 'MI', 'Minnesota': 'MN', 'Mississippi': 'MS',
-    'Missouri': 'MO', 'Montana': 'MT', 'Nebraska': 'NE', 'Nevada': 'NV', 'New Hampshire': 'NH',
-    'New Jersey': 'NJ', 'New Mexico': 'NM', 'New York': 'NY', 'North Carolina': 'NC', 'North Dakota': 'ND',
-    'Ohio': 'OH', 'Oklahoma': 'OK', 'Oregon': 'OR', 'Pennsylvania': 'PA', 'Puerto Rico': 'PR',
-    'Rhode Island': 'RI', 'South Carolina': 'SC', 'South Dakota': 'SD', 'Tennessee': 'TN', 'Texas': 'TX',
-    'Utah': 'UT', 'Vermont': 'VT', 'Virginia': 'VA', 'Washington': 'WA', 'West Virginia': 'WV',
-    'Wisconsin': 'WI', 'Wyoming': 'WY'
-}
-
-# --- 2. Set Page Configuration ---
+# --- 1. Set Page Configuration ---
 st.set_page_config(
-    page_title="US Lead Pipe Heatmap",
-    page_icon="🌡️",
+    page_title="US States Interactive Map",
+    page_icon="🗺️",
     layout="wide",
     initial_sidebar_state="auto"
 )
 
-# --- 3. Load and Process Data ---
-try:
-    # --- Load Pipe Data ---
-    df_proj = pd.read_csv("data/projected_pipes.csv").rename(
-        columns={'State': 'State_Name', 'Lead_Content': 'Projected_Pipes'}
-    )
-    df_meas = pd.read_csv("data/measured_pipes.csv").rename(
-        columns={'State': 'State_Name', 'Lead_Content': 'Measured_Pipes'}
-    )
-    
-    # --- Data Cleaning and Mapping ---
-    df_proj['State_Code'] = df_proj['State_Name'].astype(str).str.strip().map(STATE_TO_CODE)
-    df_meas['State_Code'] = df_meas['State_Name'].astype(str).str.strip().map(STATE_TO_CODE)
-    
-    # FIX: Filter out rows where State_Code mapping failed (produced NaN)
-    df_proj = df_proj.dropna(subset=['State_Code'])
-    df_meas = df_meas.dropna(subset=['State_Code'])
-    
-    # --- Merge and Calculate Total ---
-    pipes_data = pd.merge(df_proj[['State_Code', 'Projected_Pipes']],
-                         df_meas[['State_Code', 'Measured_Pipes']],
-                         on='State_Code',
-                         how='outer').fillna(0)
-                         
-    pipes_data['Total_Lead_Pipes'] = pipes_data['Projected_Pipes'] + pipes_data['Measured_Pipes']
-    
-    st.sidebar.header("Data Check: Top 5 States")
-    st.sidebar.dataframe(pipes_data[['State_Code', 'Total_Lead_Pipes']].sort_values(
-        by='Total_Lead_Pipes', ascending=False
-    ).head())
-    
-except Exception as e:
-    st.error(f"Error loading or processing pipe data. Please verify file locations and headers. Error: {e}")
-    st.stop()
-    
-# --- Load GeoJSON Data ---
+# --- 2. Main Page Content ---
+st.title("Interactive Map of US States 🗺️")
+st.write("This map is fully interactive. You can zoom, pan, and click on a state.")
+
+# --- Load Local GeoJSON File ---
+# This path matches the 'us_states.json' file you uploaded.
 file_path = "data/us_states.json"
 try:
     with open(file_path, "r") as f:
+        # Load the GeoJSON data into a variable
         us_state_data = json.load(f) 
+except FileNotFoundError:
+    st.error(f"Error: GeoJSON file not found at '{file_path}'.")
+    st.error("Please make sure the file is in the same directory as your script.")
+    st.stop() # Stop the app if the file isn't found
+except json.JSONDecodeError:
+    st.error(f"Error: Could not read or decode the GeoJSON file.")
+    st.error("Please ensure the file is a valid GeoJSON.")
+    st.stop()
 except Exception as e:
-    st.error(f"Error loading GeoJSON file at '{file_path}'. Error: {e}")
+    st.error(f"An unexpected error occurred while loading the file: {e}")
     st.stop()
 
 
-# --- 4. Folium Map Creation (Choropleth) ---
-st.title("US Lead Pipe Exposure Heatmap 🌡️")
-st.write("States are colored darker for a higher estimated total of lead pipes. Click a state for detailed data.")
-
+# --- 3. Folium Map Creation ---
+# Centered on the contiguous United States for a good view
 us_lat = 39.8283
 us_lon = -98.5795
 us_zoom = 4
 
 m = folium.Map(location=[us_lat, us_lon], zoom_start=us_zoom)
 
-# Create the Choropleth map
-cp = folium.Choropleth(
-    geo_data=us_state_data,
-    data=pipes_data,
-    columns=['State_Code', 'Total_Lead_Pipes'],
-    key_on='feature.id', # Joins 'State_Code' from pipes_data to the GeoJSON 'id' (2-letter code)
-    fill_color='YlOrRd', 
-    fill_opacity=0.7,
-    line_opacity=0.2,
-    legend_name='Total Estimated Lead Pipes (Units: Pipe Count)',
-    highlight=True
+# --- Add State Outlines (from local data) ---
+
+folium.GeoJson(
+    us_state_data, # Pass the loaded data variable here
+    name="US States",
+    
+    style_function=lambda feature: {
+        'fillColor': '#4682B4', # Steel Blue
+        'color': 'black',
+        'weight': 1,
+        'fillOpacity': 0.3,
+    },
+    
+    highlight_function=lambda x: {
+        'weight': 3,
+        'color': '#FF4500', # Orange Red for highlight
+        'fillOpacity': 0.6,
+    },
+    
+    tooltip=folium.features.GeoJsonTooltip(
+        # **UPDATED FIELD:** Using 'name' from your GeoJSON file
+        fields=['name'],     
+        aliases=['State:'],   
+        sticky=True
+    )
 ).add_to(m)
 
-# 💡 FIX: Use a lambda function in the tooltip fields to safely access properties.
-# This prevents the AssertionError if the merged data (pipes_data fields) is missing 
-# for a GeoJSON feature (e.g., if a territory is in the GeoJSON but not in your CSVs).
-
-tooltip_fields = [
-    'name', # Standard GeoJSON property (State Name)
-    (lambda x: x['properties'].get('Total_Lead_Pipes', 'N/A')),
-    (lambda x: x['properties'].get('Projected_Pipes', 'N/A')),
-    (lambda x: x['properties'].get('Measured_Pipes', 'N/A'))
-]
-
-folium.features.GeoJsonTooltip(
-    fields=tooltip_fields,
-    aliases=['State:', 'Total Pipes:', 'Projected Pipes:', 'Measured Pipes:'],
-    localize=True,
-    sticky=False,
-    labels=True,
-    style=("background-color: white; color: #333333; font-family: arial; font-size: 12px; padding: 10px;")
-).add_to(cp.geojson) # Correctly attached to the choropleth's GeoJson data
-
-# --- 5. Display Map and Handle Click Data ---
-st.header("Click Information")
-
+# --- 4. Display Map and Capture Clicks ---
+st.write("Click on a state to see its name below.")
 map_data = st_folium(
     m,
     use_container_width=True,
-    height=550,
+    height=500,
     returned_objects=["last_object_clicked"]
 )
 
-if map_data.get("last_object_clicked"):
-    state_id = map_data["last_object_clicked"]["id"]
-    
-    # Get the full state name from the GeoJSON properties
-    state_name = next(
-        (feature['properties']['name'] for feature in us_state_data['features'] if feature['id'] == state_id),
-        "Unknown State"
-    )
-    
-    # Filter the pipe data for the clicked state
-    clicked_data = pipes_data[pipes_data['State_Code'] == state_id]
-    
-    st.success(f"### Clicked State: **{state_name} ({state_id})**")
-    
-    if not clicked_data.empty:
-        total = clicked_data['Total_Lead_Pipes'].iloc[0]
-        proj = clicked_data['Projected_Pipes'].iloc[0]
-        meas = clicked_data['Measured_Pipes'].iloc[0]
-        
-        st.info(f"""
-        - **Total Estimated Lead Pipes:** {total:,.0f}
-        - **Projected Pipes:** {proj:,.0f}
-        - **Measured Pipes:** {meas:,.0f}
-        """)
-    else:
-        st.warning(f"No lead pipe data found for {state_name} in the provided CSVs.")
+# --- 5. Handle Click Data ---
+st.header("Click Information")
 
+if map_data.get("last_object_clicked"):
+    # **UPDATED FIELD:** Using 'name' from your GeoJSON file
+    try:
+        state_name = map_data["last_object_clicked"]["properties"]["name"]
+        st.success(f"You clicked on the state: **{state_name}**!")
+    except KeyError:
+        st.warning("Clicked on the map, but couldn't find the state name property. Check the GeoJSON file's properties.")
 else:
-    st.info("No state clicked yet. Click a state to see its data.")
+    st.info("No state clicked yet.")
+
+
+# --- 6. Other Page Components ---
+st.sidebar.header("Map Options")
+st.sidebar.write("Future map controls can go here!")
+
+col1, col2 = st.columns(2)
+with col1:
+    st.header("Map Info")
+    st.write("The map above shows the outline of all US states.")
+
+with col2:
+    st.header("Next Steps")
+    st.write("You can use the clicked state name to show specific state-level data.")
