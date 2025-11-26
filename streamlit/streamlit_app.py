@@ -83,10 +83,9 @@ def main():
     # Create the indexed version for quick data look-up when generating tooltips
     pipe_data_for_map = pipe_df.set_index('State')
     
-    # --- NEW: Dropdown Menu Setup ---
+    # --- Dropdown Menu Setup ---
     
     # 1. Define the mapping options and their display names
-    # Key: Column in pipe_df | Value: Display Name for legend
     MAP_OPTIONS = {
         '%_Total_with_lead_float': 'Percentage of Total Pipes with Lead (%)',
         'Lead_Content': 'Count of Pipes with Lead Content',
@@ -127,12 +126,11 @@ def main():
         highlight=True
     ).add_to(m)
 
-    # --- Add Data to GeoJSON features for Tooltips (No change needed here) ---
+    # --- Add Data to GeoJSON features for Tooltips ---
     for feature in choropleth.geojson.data['features']:
         state_name = feature['properties']['name']
         if state_name in pipe_data_for_map.index:
             state_data = pipe_data_for_map.loc[state_name]
-            # ... (Tooltip data assignment remains the same)
             feature['properties']['Lead_Rank'] = state_data['Reports_Rank']
             feature['properties']['Pct_Lead'] = state_data['%_Total_with_lead']
             feature['properties']['Total_Pipes'] = state_data['Total_Pipes_Fmt']
@@ -141,7 +139,6 @@ def main():
             feature['properties']['Not_Lead_Count'] = state_data['Not_Lead_Pipes_Fmt']
         else:
             # Handle states not in data (e.g., US territories)
-            # ... (Assignment for missing data remains the same)
             feature['properties']['Lead_Rank'] = 'N/A'
             feature['properties']['Pct_Lead'] = 'N/A'
             feature['properties']['Total_Pipes'] = 'N/A'
@@ -149,7 +146,7 @@ def main():
             feature['properties']['Standalone_Galvanized_Count'] = 'N/A'
             feature['properties']['Not_Lead_Count'] = 'N/A'
             
-    # --- Create the new HOVER Tooltip (No change needed here) ---
+    # --- Create the HOVER Tooltip ---
     tooltip_fields = [
         'name',
         'Lead_Rank',
@@ -182,8 +179,7 @@ def main():
     )
 
     # --- 4. Display Map ---
-    st.info(f"The map is currently displaying data for: **{legend_title}**.")
-    st.info("Hover over any state in the map below to view all its specific lead pipe data and national ranking.")
+    # The st.info boxes were removed here
     
     # Display the map without needing to capture clicks
     st_folium(
@@ -193,8 +189,7 @@ def main():
     )
 
     # --- 5. Sidebar and Footer ---
-    st.sidebar.header("Map Functionality")
-    st.sidebar.info("Data details now appear on **hover** directly on the map via a tooltip.")
+    # The "Map Functionality" header and st.info were removed here
     
     # Update the caption to reflect the dynamic nature
     st.sidebar.markdown("---")
